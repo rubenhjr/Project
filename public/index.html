@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Movie CRUD</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main>
+      <h1>Movie</h1>
+
+      <section id="search">
+        <input id="q" placeholder="Search movies by text (title, plot, cast)" />
+        <button id="searchBtn">Search</button>
+      </section>
+
+      <section id="results">
+        <h2>Results</h2>
+        <ul id="list"></ul>
+      </section>
+
+      <section id="editor">
+        <div id="msg" role="status" aria-live="polite"></div>
+        <h2>Create / Update</h2>
+        <input id="id" placeholder="(leave empty to create) id" />
+  <input id="title" placeholder="title" />
+  <div class="field-error" id="err-title" aria-hidden="true"></div>
+  <input id="year" placeholder="year" />
+  <div class="field-error" id="err-year" aria-hidden="true"></div>
+        <textarea id="plot" placeholder="plot"></textarea>
+        <button id="saveBtn">Save</button>
+        <button id="deleteBtn">Delete</button>
+      </section>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,9 @@
+body{font-family:Segoe UI,Roboto,Arial;margin:24px}
+main{max-width:900px;margin:auto}#results ul{list-style:none;padding:0}#results li{border-bottom:1px solid #ddd;padding:8px}
+input,textarea{display:block;margin:6px 0;padding:8px;width:100%}
+button{padding:8px 12px;margin-right:8px}#search{display:flex;gap:8px}#search input{flex:1}#editor{margin-top:16px}
+#msg{padding:8px;margin-bottom:8px;border-radius:4px}
+.msg-error{background:#ffe6e6;color:#900;border:1px solid #f5c2c2}
+.msg-ok{background:#e6ffea;color:#084;border:1px solid #bfecc9}
+.field-error{color:#900;font-size:0.9em;height:1.2em;margin-top:-4px;margin-bottom:6px}
+.disabled{opacity:0.5;pointer-events:none}
