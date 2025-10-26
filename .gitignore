@@ -1,7 +1,2 @@
 .env
 node_modules
-.vscode
-*.tsbuildinfo
-/.idea
-/.cache
-/*.log
