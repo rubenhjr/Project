@@ -21,6 +21,11 @@ async function connect(uri, dbName = process.env.DB_NAME || 'sample_mflix') {
         client = new mongodb_1.MongoClient(uri, {
             serverSelectionTimeoutMS: 30000,
             connectTimeoutMS: 30000,
+            socketTimeoutMS: 30000,
+            tls: true,
+            tlsAllowInvalidCertificates: false, // keep secure
+            retryWrites: true,
+            retryReads: true,
         });
     }
     await client.connect();

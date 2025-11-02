@@ -10,6 +10,11 @@ export async function connect(uri: string, dbName = process.env.DB_NAME || 'samp
     client = new MongoClient(uri, {
       serverSelectionTimeoutMS: 30000,
       connectTimeoutMS: 30000,
+      socketTimeoutMS: 30000,
+      tls: true,
+      tlsAllowInvalidCertificates: false, // keep secure
+      retryWrites: true,
+      retryReads: true,
     });
   }
   

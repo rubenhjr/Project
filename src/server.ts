@@ -23,6 +23,8 @@ async function initGraphQL() {
       typeDefs,
       resolvers,
       context: () => ({ db }),
+      persistedQueries: false, // Disable to avoid cache vulnerability
+      introspection: process.env.NODE_ENV !== 'production', // Disable introspection in prod
     });
 
     await apolloServer.start();
