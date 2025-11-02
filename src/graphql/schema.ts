@@ -34,11 +34,8 @@ export const typeDefs = gql`
 
 export const resolvers = {
   Query: {
-    movies: async (_: any, { q, limit = 20, skip = 0 }: any) => {
-      const opts = { q, limit, skip };
-      const results = await db.searchMovies(opts);
-      console.log(`GraphQL movies query returned ${results.length} results`); // debug log
-      return results;
+    movies: async (_: any, { q, limit = 20, skip = 0 }: any, { db }: any) => {
+      return db.searchMovies({ q, limit, skip });
     },
     movie: async (_: any, { id }: any) => {
       return await db.getMovieById(id);

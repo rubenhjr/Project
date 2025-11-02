@@ -32,91 +32,77 @@ titleInput.addEventListener('input', validate);
 yearInput.addEventListener('input', validate);
 
 async function graphqlFetch(query, variables = {}) {
-  const url = window.location.hostname === 'localhost' && window.location.port === '5500'
-    ? 'http://localhost:10000/graphql'
+  
+  const url = (location.hostname === 'localhost' && location.port === '5500')
+    ? 'http://localhost:3000/graphql'
     : '/graphql';
 
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ query, variables })
+  });
+
+  let data;
   try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, variables })
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      console.error('GraphQL HTTP error:', res.status, text);
-      throw new Error(`HTTP ${res.status}: ${text.slice(0, 200)}`);
-    }
-
-    const payload = await res.json();
-    console.log('GraphQL response:', payload); // ← Debug log
-    
-    if (payload.errors) {
-      console.error('GraphQL errors:', payload.errors);
-      throw new Error(payload.errors.map(e => e.message).join('; '));
-    }
-    
-    return payload.data;
-  } catch (err) {
-    console.error('GraphQL fetch failed:', err);
-    throw err;
+    data = await res.json();
+  } catch {
+    const text = await res.text();
+    throw new Error(`Non-JSON response (${res.status}): ${text.slice(0, 200)}`);
   }
+  if (!res.ok || data.errors) {
+    const msg = data?.errors?.map(e => e.message).join('; ') || res.statusText;
+    throw new Error(msg);
+  }
+  return data.data;
 }
 
 async function search() {
-  clearFieldErrors();
   try {
-    const q = qInput.value.trim();
+    const q = (qInput?.value || '').trim();
     const data = await graphqlFetch(
-      `query Search($q:String,$limit:Int){movies(q:$q,limit:$limit){_id title year plot}}`,
+      `query Search($q:String,$limit:Int){
+        movies(q:$q,limit:$limit){ _id title year plot }
+      }`,
       { q: q || undefined, limit: 20 }
     );
-    
-    console.log('Movies returned:', data.movies);
-    
+
     listEl.innerHTML = '';
-    if (!data.movies || data.movies.length === 0) {
+    const items = data.movies || [];
+    if (items.length === 0) {
       listEl.innerHTML = '<li>No results found</li>';
       return;
     }
-    
-    data.movies.forEach(m => {
+
+    items.forEach(m => {
       const li = document.createElement('li');
       li.innerHTML = `
         <div class="movie-result">
-          <div class="movie-header">
-            <strong>${m.title}</strong> (${m.year || '?'})
-          </div>
+          <div><strong>${m.title}</strong> (${m.year ?? '?'})</div>
           <div class="movie-plot">${m.plot || 'No plot available'}</div>
-          <small style="color: #666;">ID: ${m._id}</small>
+          <small>ID: ${m._id}</small>
         </div>
       `;
-      li.onclick = () => loadMovie(m);
+      li.onclick = () => {
+        if (idInput) idInput.value = m._id || '';
+        if (titleInput) titleInput.value = m.title || '';
+        if (yearInput) yearInput.value = m.year || '';
+        if (plotInput) plotInput.value = m.plot || '';
+      };
       listEl.appendChild(li);
     });
   } catch (err) {
-    console.error('GraphQL search error', err);
-    showMsg(`Search failed: ${err.message}`, 'error');
+    console.error('Search failed:', err);
+    listEl.innerHTML = `<li style="color:#b00;">Search error: ${err.message}</li>`;
   }
 }
 
-function renderList(items) {
-  listEl.innerHTML = '';
-  items.forEach(it => {
-    const li = document.createElement('li');
-    li.textContent = `${it._id || ''} - ${it.title || '(no title)'} (${it.year || ''})`;
-    li.onclick = () => {
-      idInput.value = it._id || '';
-      titleInput.value = it.title || '';
-      yearInput.value = it.year || '';
-      plotInput.value = it.plot || '';
-    };
-    listEl.appendChild(li);
-  });
-}
+// Hook up events
+if (searchBtn) searchBtn.addEventListener('click', search);
+if (qInput) qInput.addEventListener('keydown', e => { if (e.key === 'Enter') search(); });
 
-searchBtn.onclick = search;
+// Optional: run an initial search
+document.addEventListener('DOMContentLoaded', () => { if (listEl) search(); });
 
 saveBtn.onclick = async () => {
   const id = idInput.value.trim();
