@@ -1,71 +1,101 @@
 import 'dotenv/config';
 import express from 'express';
 import path from 'path';
-import * as tdb from './db';
 import cors from 'cors';
+import * as db from './db';
 
 const app = express();
-app.use(cors()); // allow Live Server origin
 
-// Health check endpoint for Render
+// Middleware FIRST
+app.use(cors());
+app.use(express.json());
+
+// Health check (before GraphQL and static)
 app.get('/healthz', (_req, res) => res.status(200).send('ok'));
 
-// Middleware
-app.use(express.json());
+// Initialize GraphQL synchronously BEFORE starting server
+async function initGraphQL() {
+  try {
+    const { ApolloServer } = require('apollo-server-express');
+    const { typeDefs, resolvers } = require('./graphql/schema');
+
+    const apolloServer = new ApolloServer({
+      typeDefs,
+      resolvers,
+      context: () => ({ db }),
+    });
+
+    await apolloServer.start();
+    apolloServer.applyMiddleware({ app, path: '/graphql' });
+    console.log('✅ GraphQL endpoint mounted at /graphql');
+    return true;
+  } catch (err: any) {
+    console.error('❌ GraphQL initialization failed:', err.message || err);
+    return false;
+  }
+}
+
+// Static files AFTER GraphQL (so /graphql isn't caught by static handler)
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
-// Serve frontend
+// Root route
 app.get('/', (_req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
 
-// Start server immediately so Render health checks pass while DB connects
-const PORT = Number(process.env.PORT || 3000);
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Web Server is listening at port ${PORT}`);
-  console.log(`Env check -> has MONGO_URI: ${Boolean(process.env.MONGO_URI)}, DB_NAME: ${process.env.DB_NAME || 'sample_mflix'}`);
-});
-
-// Movie operations are provided via GraphQL at /graphql. REST endpoints removed.
-
-// Connect to Mongo and mount GraphQL
+// Connect to DB and initialize everything BEFORE starting server
 async function start() {
-  const uri = process.env.MONGO_URI;
-  const dbName = process.env.DB_NAME || 'sample_mflix'; // ← Use sample_mflix
+  const MONGO_URI = process.env.MONGO_URI;
+  const DB_NAME = process.env.DB_NAME || 'sample_mflix';
 
-  if (!uri) {
-    console.error('MONGO_URI is not set; skipping DB connect');
-    return;
-  }
-
-  try {
-    await tdb.connect(uri, dbName);
-    console.log(`Connected to MongoDB (db=${dbName})`);
-
-    // Initialize GraphQL after DB connect
+  // Connect to MongoDB
+  if (!MONGO_URI) {
+    console.error('❌ MONGO_URI not set - database features disabled');
+  } else {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { typeDefs, resolvers } = require('./graphql/schema');
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { ApolloServer } = require('apollo-server-express');
-      const apolloServer = new ApolloServer({ typeDefs, resolvers, context: () => ({ db: tdb }) });
-      await apolloServer.start();
-      // @ts-ignore
-      apolloServer.applyMiddleware({ app, path: '/graphql' });
-      console.log('GraphQL endpoint mounted at /graphql');
-    } catch (e: any) {
-      console.warn('GraphQL init failed:', e?.message || e);
+      await db.connect(MONGO_URI, DB_NAME);
+      console.log(`✅ Connected to MongoDB (database: ${DB_NAME})`);
+
+      if (process.env.ENABLE_TEXT_INDEX === 'true') {
+        const result = await db.ensureTextIndex();
+        if (result.ok) console.log('✅ Text index ready');
+      }
+    } catch (err: any) {
+      console.error('❌ MongoDB connection failed:', err.message || err);
+      console.error('Database features will be unavailable');
     }
-  } catch (err: any) {
-    console.error('MongoDB connect failed:', err?.message || err);
-    // Do not exit on Render; keep serving health checks and static files
   }
+
+  // Initialize GraphQL (required for app to work)
+  const graphqlOk = await initGraphQL();
+  if (!graphqlOk) {
+    console.error('⚠️  Starting server without GraphQL - app will not function correctly');
+  }
+
+  // NOW start the HTTP server
+  const PORT = Number(process.env.PORT || 3000);
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`✅ Web Server listening on port ${PORT}`);
+    console.log(`   Health: http://localhost:${PORT}/healthz`);
+    if (graphqlOk) console.log(`   GraphQL: http://localhost:${PORT}/graphql`);
+  });
 }
 
-process.on('SIGINT', async () => {
-  console.log('SIGINT received; closing DB');
-  await tdb.close();
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM received, closing connections...');
+  await db.close();
   process.exit(0);
 });
 
-start();
+process.on('SIGINT', async () => {
+  console.log('SIGINT received, closing connections...');
+  await db.close();
+  process.exit(0);
+});
+
+// Start everything
+start().catch((err) => {
+  console.error('Fatal startup error:', err);
+  process.exit(1);
+});
