@@ -6,4 +6,5 @@ button{padding:8px 12px;margin-right:8px}#search{display:flex;gap:8px}#search in
 .msg-error{background:#ffe6e6;color:#900;border:1px solid #f5c2c2}
 .msg-ok{background:#e6ffea;color:#084;border:1px solid #bfecc9}
 .field-error{color:#900;font-size:0.9em;height:1.2em;margin-top:-4px;margin-bottom:6px}
-.disabled{opacity:0.5;pointer-events:none}#list li{cursor:pointer;padding:10px;border-bottom:1px solid #eee;transition:background-color .2s}#list li:hover{background-color:#f5f5f5}#list li strong{font-weight:600;color:#333}#list li small{font-size:.85em;color:#666}
+.disabled{opacity:0.5;pointer-events:none}#list li{cursor:pointer;padding:12px;border-bottom:1px solid #eee;transition:background-color .2s}#list li:hover{background-color:#f5f5f5}#list li strong{font-weight:600;color:#333}#list li small{font-size:.85em;color:#999}
+.movie-result{display:flex;flex-direction:column;gap:8px}.movie-header{font-size:1.1em}.movie-header strong{font-weight:600;color:#333}.movie-plot{color:#555;font-size:0.95em;line-height:1.4;max-height:3.6em;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}

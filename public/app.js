@@ -84,8 +84,13 @@ async function search() {
     data.movies.forEach(m => {
       const li = document.createElement('li');
       li.innerHTML = `
-        <strong>${m.title}</strong> (${m.year || '?'})<br>
-        <small style="color: #666;">ID: ${m._id}</small>
+        <div class="movie-result">
+          <div class="movie-header">
+            <strong>${m.title}</strong> (${m.year || '?'})
+          </div>
+          <div class="movie-plot">${m.plot || 'No plot available'}</div>
+          <small style="color: #666;">ID: ${m._id}</small>
+        </div>
       `;
       li.onclick = () => loadMovie(m);
       listEl.appendChild(li);
