@@ -4,47 +4,72 @@ let client: MongoClient | null = null;
 let database: any = null;
 
 export async function connect(uri: string, dbName = process.env.DB_NAME || 'sample_mflix') {
-  if (!uri) throw new Error('MONGO_URI is missing');
+  if (!uri) throw new Error('MONGO_URI is required');
+  
   if (!client) {
     client = new MongoClient(uri, {
-      serverSelectionTimeoutMS: 30000, // wait longer in Render
+      serverSelectionTimeoutMS: 30000,
+      connectTimeoutMS: 30000,
     });
   }
-  // Safe to call connect() multiple times; driver no-ops if already connected
+  
   await client.connect();
   database = client.db(dbName);
+  
+  // Ping to verify connection
+  await database.admin().ping();
+  
   return database;
 }
 
-export async function ensureTextIndex() {
+export async function ensureTextIndex(): Promise<{ ok: boolean; error?: string }> {
   if (process.env.ENABLE_TEXT_INDEX !== 'true') {
-    console.log('Text index creation skipped (ENABLE_TEXT_INDEX != "true")');
-    return;
+    return { ok: true };
   }
-  if (!database) throw new Error('DB not connected');
-  await database.collection('movies').createIndex(
-    { title: 'text', plot: 'text', cast: 'text' },
-    { name: 'ft_movies' }
-  );
-  console.log('Text index ensured');
+  
+  if (!database) {
+    return { ok: false, error: 'Database not connected' };
+  }
+  
+  try {
+    const collection = database.collection('movies');
+    await collection.createIndex(
+      { title: 'text', plot: 'text', cast: 'text' },
+      { name: 'ft_movies' }
+    );
+    return { ok: true };
+  } catch (err: any) {
+    // Index might already exist
+    if (err.codeName === 'IndexOptionsConflict' || err.code === 85) {
+      console.log('Text index already exists with different options');
+      return { ok: true };
+    }
+    return { ok: false, error: err.message || String(err) };
+  }
 }
 
-export async function refreshDb(uri: string, dbName = 'sample_mflix') {
+export async function refreshDb(uri: string, dbName = 'sample_mflix'): Promise<string[]> {
   const results: string[] = [];
+  
   try {
-    if (database) {
-      await database.command({ ping: 1 });
-      results.push('ping OK');
-    } else {
+    if (!database) {
       await connect(uri, dbName);
-      results.push('connected');
+      results.push('reconnected to DB');
+    } else {
+      await database.admin().ping();
+      results.push('ping OK');
     }
-  } catch (err) {
-    try { if (client) await client.close(); } catch (e) { }
-    await connect(uri, dbName);
-    results.push('reconnected');
+    
+    const indexResult = await ensureTextIndex();
+    if (indexResult.ok) {
+      results.push('text index ensured');
+    } else if (indexResult.error) {
+      results.push(`text index warning: ${indexResult.error}`);
+    }
+  } catch (err: any) {
+    results.push(`error: ${err.message || err}`);
   }
-
+  
   return results;
 }
 
@@ -122,9 +147,8 @@ export async function deleteMovieById(id: string) {
 }
 
 export async function close() {
-  try {
-    if (client) await client.close();
-  } finally {
+  if (client) {
+    await client.close();
     client = null;
     database = null;
   }
