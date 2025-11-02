@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import path from 'path';
-import * as db from './db';
+import * as tdb from './db';
 
 const app = express();
 
@@ -19,109 +19,51 @@ app.get('/', (_req, res) => {
 
 // Start server immediately so Render health checks pass while DB connects
 const PORT = Number(process.env.PORT || 3000);
-const server = app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Web Server is listening at port ${PORT}`);
+  console.log(`Env check -> has MONGO_URI: ${Boolean(process.env.MONGO_URI)}, DB_NAME: ${process.env.DB_NAME || 'sample_mflix'}`);
 });
 
-// Initialize database connection with retry logic
-async function initializeDatabase() {
-  const MONGO_URI = process.env.MONGO_URI;
-  const DB_NAME = process.env.DB_NAME || 'sample_mflix';
+// Movie operations are provided via GraphQL at /graphql. REST endpoints removed.
 
-  if (!MONGO_URI) {
-    console.error('MONGO_URI environment variable is not set. Skipping database connection.');
+// Connect to Mongo and mount GraphQL
+async function start() {
+  const uri = process.env.MONGO_URI;                // CHANGED: read from env
+  const dbName = process.env.DB_NAME || 'secureDB'; // or your default
+
+  if (!uri) {
+    console.error('MONGO_URI is not set; skipping DB connect (service will still serve / and /healthz).');
     return;
   }
 
-  let attempt = 1;
-  const maxAttempts = 5;
+  try {
+    await tdb.connect(uri, dbName);
+    console.log(`Connected to MongoDB (db=${dbName})`);
 
-  while (attempt <= maxAttempts) {
+    // Initialize GraphQL after DB connect
     try {
-      console.log(`Attempting to connect to MongoDB (attempt ${attempt}/${maxAttempts})...`);
-      await db.connect(MONGO_URI, DB_NAME);
-      console.log(`Connected to MongoDB (database: ${DB_NAME})`);
-      
-      // Only create text index if explicitly enabled
-      if (process.env.ENABLE_TEXT_INDEX === 'true') {
-        const indexResult = await db.ensureTextIndex();
-        if (indexResult.ok) {
-          console.log('Text index ensured on movies collection');
-        }
-      } else {
-        console.log('Text index creation skipped (ENABLE_TEXT_INDEX not set to "true")');
-      }
-      
-      // Initialize GraphQL after successful DB connection
-      await initializeGraphQL();
-      return;
-    } catch (err: any) {
-      console.error(`MongoDB connection attempt ${attempt} failed:`, err.message || err);
-      
-      if (attempt === maxAttempts) {
-        console.error('Max connection attempts reached. Database features will be unavailable.');
-        return;
-      }
-      
-      const delay = Math.min(10000, attempt * 2000);
-      console.log(`Retrying in ${delay}ms...`);
-      await new Promise(resolve => setTimeout(resolve, delay));
-      attempt++;
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { typeDefs, resolvers } = require('./graphql/schema');
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { ApolloServer } = require('apollo-server-express');
+      const apolloServer = new ApolloServer({ typeDefs, resolvers, context: () => ({ db: tdb }) });
+      await apolloServer.start();
+      // @ts-ignore
+      apolloServer.applyMiddleware({ app, path: '/graphql' });
+      console.log('GraphQL endpoint mounted at /graphql');
+    } catch (e: any) {
+      console.warn('GraphQL init failed:', e?.message || e);
     }
-  }
-}
-
-// Initialize GraphQL server
-async function initializeGraphQL() {
-  try {
-    const { ApolloServer } = require('apollo-server-express');
-    const { typeDefs, resolvers } = require('./graphql/schema');
-    
-    const apolloServer = new ApolloServer({ 
-      typeDefs, 
-      resolvers,
-      context: () => ({ db })
-    });
-    
-    await apolloServer.start();
-    apolloServer.applyMiddleware({ app, path: '/graphql' });
-    console.log('GraphQL endpoint mounted at /graphql');
   } catch (err: any) {
-    console.warn('GraphQL initialization failed:', err.message || err);
-    console.warn('GraphQL features will be unavailable.');
+    console.error('MongoDB connect failed:', err?.message || err);
+    // Do not exit on Render; keep serving health checks and static files
   }
 }
 
-// Graceful shutdown
 process.on('SIGINT', async () => {
-  console.log('SIGINT received, closing connections...');
-  try {
-    await db.close();
-    server.close(() => {
-      console.log('Server closed');
-      process.exit(0);
-    });
-  } catch (err) {
-    console.error('Error during shutdown:', err);
-    process.exit(1);
-  }
+  console.log('SIGINT received; closing DB');
+  await tdb.close();
+  process.exit(0);
 });
 
-process.on('SIGTERM', async () => {
-  console.log('SIGTERM received, closing connections...');
-  try {
-    await db.close();
-    server.close(() => {
-      console.log('Server closed');
-      process.exit(0);
-    });
-  } catch (err) {
-    console.error('Error during shutdown:', err);
-    process.exit(1);
-  }
-});
-
-// Start database initialization (non-blocking)
-initializeDatabase().catch(err => {
-  console.error('Unexpected error during database initialization:', err);
-});
+start();

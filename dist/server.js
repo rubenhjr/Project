@@ -40,58 +40,57 @@ require("dotenv/config");
 const express_1 = __importDefault(require("express"));
 const path_1 = __importDefault(require("path"));
 const tdb = __importStar(require("./db"));
-const { ApolloServer } = (() => {
-    try {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        return require('apollo-server-express');
-    }
-    catch (e) {
-        return {};
-    }
-})();
 const app = (0, express_1.default)();
-// Health check (Render can use /healthz)
+// Health check endpoint for Render
 app.get('/healthz', (_req, res) => res.status(200).send('ok'));
-// IMPORTANT: listen on Render's PORT and 0.0.0.0
+// Middleware
+app.use(express_1.default.json());
+app.use(express_1.default.static(path_1.default.join(__dirname, '..', 'public')));
+// Serve frontend
+app.get('/', (_req, res) => {
+    res.sendFile(path_1.default.join(__dirname, '..', 'public', 'index.html'));
+});
+// Start server immediately so Render health checks pass while DB connects
 const PORT = Number(process.env.PORT || 3000);
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Web Server is listening at port ${PORT}`);
-});
-app.use(express_1.default.json());
-app.use(express_1.default.static(path_1.default.join(__dirname, '..', 'public')));
-app.get('/', (req, res) => {
-    res.sendFile(path_1.default.join(__dirname, '..', 'public', 'index.html'));
+    console.log(`Env check -> has MONGO_URI: ${Boolean(process.env.MONGO_URI)}, DB_NAME: ${process.env.DB_NAME || 'sample_mflix'}`);
 });
 // Movie operations are provided via GraphQL at /graphql. REST endpoints removed.
+// Connect to Mongo and mount GraphQL
 async function start() {
+    const uri = process.env.MONGO_URI; // CHANGED: read from env
+    const dbName = process.env.DB_NAME || 'secureDB'; // or your default
+    if (!uri) {
+        console.error('MONGO_URI is not set; skipping DB connect (service will still serve / and /healthz).');
+        return;
+    }
     try {
-        await tdb.connect(MONGO_URI);
-        await tdb.ensureTextIndex();
-        console.log('Connected to MongoDB (via src/db.ts)');
-        if (ApolloServer) {
-            try {
-                const { typeDefs, resolvers } = require('./graphql/schema');
-                const apolloServer = new ApolloServer({ typeDefs, resolvers });
-                await apolloServer.start();
-                // @ts-ignore
-                apolloServer.applyMiddleware({ app, path: '/graphql' });
-                console.log('GraphQL endpoint mounted at /graphql');
-            }
-            catch (err) {
-                console.warn('Could not initialize GraphQL (missing schema or apollo).', err.message || err);
-            }
+        await tdb.connect(uri, dbName);
+        console.log(`Connected to MongoDB (db=${dbName})`);
+        // Initialize GraphQL after DB connect
+        try {
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
+            const { typeDefs, resolvers } = require('./graphql/schema');
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
+            const { ApolloServer } = require('apollo-server-express');
+            const apolloServer = new ApolloServer({ typeDefs, resolvers, context: () => ({ db: tdb }) });
+            await apolloServer.start();
+            // @ts-ignore
+            apolloServer.applyMiddleware({ app, path: '/graphql' });
+            console.log('GraphQL endpoint mounted at /graphql');
         }
-        else {
-            console.log('apollo-server-express not installed — GraphQL disabled.');
+        catch (e) {
+            console.warn('GraphQL init failed:', e?.message || e);
         }
     }
     catch (err) {
-        console.error('Failed to connect to MongoDB', err);
-        process.exit(1);
+        console.error('MongoDB connect failed:', err?.message || err);
+        // Do not exit on Render; keep serving health checks and static files
     }
 }
 process.on('SIGINT', async () => {
-    console.log('SIGINT received, closing MongoDB connection');
+    console.log('SIGINT received; closing DB');
     await tdb.close();
     process.exit(0);
 });

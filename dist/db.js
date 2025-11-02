@@ -16,50 +16,62 @@ let client = null;
 let database = null;
 async function connect(uri, dbName = process.env.DB_NAME || 'sample_mflix') {
     if (!uri)
-        throw new Error('MONGO_URI missing');
+        throw new Error('MONGO_URI is required');
     if (!client) {
-        client = new mongodb_1.MongoClient(uri);
+        client = new mongodb_1.MongoClient(uri, {
+            serverSelectionTimeoutMS: 30000,
+            connectTimeoutMS: 30000,
+        });
     }
     await client.connect();
     database = client.db(dbName);
+    // Ping to verify connection
+    await database.admin().ping();
     return database;
 }
 async function ensureTextIndex() {
     if (process.env.ENABLE_TEXT_INDEX !== 'true') {
-        console.log('Text index creation skipped (ENABLE_TEXT_INDEX != "true")');
-        return;
+        return { ok: true };
     }
-    if (!database)
-        throw new Error('DB not connected');
-    await database.collection('movies').createIndex({ title: 'text', plot: 'text', cast: 'text' }, { name: 'ft_movies' });
-    console.log('Text index ensured');
+    if (!database) {
+        return { ok: false, error: 'Database not connected' };
+    }
+    try {
+        const collection = database.collection('movies');
+        await collection.createIndex({ title: 'text', plot: 'text', cast: 'text' }, { name: 'ft_movies' });
+        return { ok: true };
+    }
+    catch (err) {
+        // Index might already exist
+        if (err.codeName === 'IndexOptionsConflict' || err.code === 85) {
+            console.log('Text index already exists with different options');
+            return { ok: true };
+        }
+        return { ok: false, error: err.message || String(err) };
+    }
 }
 async function refreshDb(uri, dbName = 'sample_mflix') {
     const results = [];
     try {
-        if (database) {
-            await database.command({ ping: 1 });
-            results.push('ping OK');
+        if (!database) {
+            await connect(uri, dbName);
+            results.push('reconnected to DB');
         }
         else {
-            await connect(uri, dbName);
-            results.push('connected');
+            await database.admin().ping();
+            results.push('ping OK');
+        }
+        const indexResult = await ensureTextIndex();
+        if (indexResult.ok) {
+            results.push('text index ensured');
+        }
+        else if (indexResult.error) {
+            results.push(`text index warning: ${indexResult.error}`);
         }
     }
     catch (err) {
-        try {
-            if (client)
-                await client.close();
-        }
-        catch (e) { }
-        await connect(uri, dbName);
-        results.push('reconnected');
+        results.push(`error: ${err.message || err}`);
     }
-    const idx = await ensureTextIndex();
-    if (idx.ok)
-        results.push('text index ensured');
-    else
-        results.push('index warning: ' + idx.error);
     return results;
 }
 function _buildQueryAndOptions(opts = {}) {
@@ -137,11 +149,8 @@ async function deleteMovieById(id) {
     return { deletedCount: res.deletedCount };
 }
 async function close() {
-    try {
-        if (client)
-            await client.close();
-    }
-    finally {
+    if (client) {
+        await client.close();
         client = null;
         database = null;
     }
