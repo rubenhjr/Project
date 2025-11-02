@@ -14,9 +14,9 @@ const mongodb_1 = require("mongodb");
 Object.defineProperty(exports, "ObjectId", { enumerable: true, get: function () { return mongodb_1.ObjectId; } });
 let client = null;
 let database = null;
-async function connect(uri, dbName = 'sample_mflix') {
+async function connect(uri, dbName = process.env.DB_NAME || 'sample_mflix') {
     if (!uri)
-        throw new Error('Mongo URI is required');
+        throw new Error('MONGO_URI missing');
     if (!client) {
         client = new mongodb_1.MongoClient(uri);
     }
@@ -25,15 +25,14 @@ async function connect(uri, dbName = 'sample_mflix') {
     return database;
 }
 async function ensureTextIndex() {
+    if (process.env.ENABLE_TEXT_INDEX !== 'true') {
+        console.log('Text index creation skipped (ENABLE_TEXT_INDEX != "true")');
+        return;
+    }
     if (!database)
-        throw new Error('Not connected');
-    try {
-        await database.collection('movies').createIndex({ title: 'text', plot: 'text', cast: 'text' }, { name: 'TextIndex', default_language: 'english' });
-        return { ok: true };
-    }
-    catch (err) {
-        return { ok: false, error: err.message || String(err) };
-    }
+        throw new Error('DB not connected');
+    await database.collection('movies').createIndex({ title: 'text', plot: 'text', cast: 'text' }, { name: 'ft_movies' });
+    console.log('Text index ensured');
 }
 async function refreshDb(uri, dbName = 'sample_mflix') {
     const results = [];

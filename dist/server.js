@@ -50,8 +50,13 @@ const { ApolloServer } = (() => {
     }
 })();
 const app = (0, express_1.default)();
-const MONGO_URI = process.env.MONGO_URI || '';
+// Health check (Render can use /healthz)
+app.get('/healthz', (_req, res) => res.status(200).send('ok'));
+// IMPORTANT: listen on Render's PORT and 0.0.0.0
 const PORT = Number(process.env.PORT || 3000);
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Web Server is listening at port ${PORT}`);
+});
 app.use(express_1.default.json());
 app.use(express_1.default.static(path_1.default.join(__dirname, '..', 'public')));
 app.get('/', (req, res) => {
@@ -79,9 +84,6 @@ async function start() {
         else {
             console.log('apollo-server-express not installed — GraphQL disabled.');
         }
-        app.listen(PORT, () => {
-            console.log(`Web Server is listening at port ${PORT}`);
-        });
     }
     catch (err) {
         console.error('Failed to connect to MongoDB', err);

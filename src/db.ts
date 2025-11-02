@@ -3,27 +3,30 @@ import { MongoClient, ObjectId as MongoObjectId } from 'mongodb';
 let client: MongoClient | null = null;
 let database: any = null;
 
-export async function connect(uri: string, dbName = 'sample_mflix') {
-  if (!uri) throw new Error('Mongo URI is required');
+export async function connect(uri: string, dbName = process.env.DB_NAME || 'sample_mflix') {
+  if (!uri) throw new Error('MONGO_URI is missing');
   if (!client) {
-    client = new MongoClient(uri);
+    client = new MongoClient(uri, {
+      serverSelectionTimeoutMS: 30000, // wait longer in Render
+    });
   }
+  // Safe to call connect() multiple times; driver no-ops if already connected
   await client.connect();
   database = client.db(dbName);
   return database;
 }
 
 export async function ensureTextIndex() {
-  if (!database) throw new Error('Not connected');
-  try {
-    await database.collection('movies').createIndex(
-      { title: 'text', plot: 'text', cast: 'text' },
-      { name: 'TextIndex', default_language: 'english' }
-    );
-    return { ok: true };
-  } catch (err: any) {
-    return { ok: false, error: err.message || String(err) };
+  if (process.env.ENABLE_TEXT_INDEX !== 'true') {
+    console.log('Text index creation skipped (ENABLE_TEXT_INDEX != "true")');
+    return;
   }
+  if (!database) throw new Error('DB not connected');
+  await database.collection('movies').createIndex(
+    { title: 'text', plot: 'text', cast: 'text' },
+    { name: 'ft_movies' }
+  );
+  console.log('Text index ensured');
 }
 
 export async function refreshDb(uri: string, dbName = 'sample_mflix') {
