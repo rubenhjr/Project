@@ -40,7 +40,9 @@ require("dotenv/config");
 const express_1 = __importDefault(require("express"));
 const path_1 = __importDefault(require("path"));
 const tdb = __importStar(require("./db"));
+const cors_1 = __importDefault(require("cors"));
 const app = (0, express_1.default)();
+app.use((0, cors_1.default)()); // allow Live Server origin
 // Health check endpoint for Render
 app.get('/healthz', (_req, res) => res.status(200).send('ok'));
 // Middleware
@@ -59,10 +61,10 @@ app.listen(PORT, '0.0.0.0', () => {
 // Movie operations are provided via GraphQL at /graphql. REST endpoints removed.
 // Connect to Mongo and mount GraphQL
 async function start() {
-    const uri = process.env.MONGO_URI; // CHANGED: read from env
-    const dbName = process.env.DB_NAME || 'secureDB'; // or your default
+    const uri = process.env.MONGO_URI;
+    const dbName = process.env.DB_NAME || 'sample_mflix'; // ← Use sample_mflix
     if (!uri) {
-        console.error('MONGO_URI is not set; skipping DB connect (service will still serve / and /healthz).');
+        console.error('MONGO_URI is not set; skipping DB connect');
         return;
     }
     try {

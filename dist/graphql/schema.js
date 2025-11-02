@@ -67,11 +67,15 @@ exports.typeDefs = (0, apollo_server_express_1.gql) `
 `;
 exports.resolvers = {
     Query: {
-        movies: async (_, args) => {
-            const opts = { q: args.q, limit: args.limit || 20, skip: args.skip || 0 };
-            return db.searchMovies(opts);
+        movies: async (_, { q, limit = 20, skip = 0 }) => {
+            const opts = { q, limit, skip };
+            const results = await db.searchMovies(opts);
+            console.log(`GraphQL movies query returned ${results.length} results`); // debug log
+            return results;
         },
-        movie: async (_, { id }) => db.getMovieById(id),
+        movie: async (_, { id }) => {
+            return await db.getMovieById(id);
+        },
     },
     Mutation: {
         createMovie: async (_, { input }) => {

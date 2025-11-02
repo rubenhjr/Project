@@ -32,26 +32,64 @@ titleInput.addEventListener('input', validate);
 yearInput.addEventListener('input', validate);
 
 async function graphqlFetch(query, variables = {}) {
-  const res = await fetch('/graphql', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query, variables })
-  });
-  const payload = await res.json();
-  if (payload.errors) throw payload.errors;
-  return payload.data;
+  const url = window.location.hostname === 'localhost' && window.location.port === '5500'
+    ? 'http://localhost:10000/graphql'
+    : '/graphql';
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, variables })
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      console.error('GraphQL HTTP error:', res.status, text);
+      throw new Error(`HTTP ${res.status}: ${text.slice(0, 200)}`);
+    }
+
+    const payload = await res.json();
+    console.log('GraphQL response:', payload); // ← Debug log
+    
+    if (payload.errors) {
+      console.error('GraphQL errors:', payload.errors);
+      throw new Error(payload.errors.map(e => e.message).join('; '));
+    }
+    
+    return payload.data;
+  } catch (err) {
+    console.error('GraphQL fetch failed:', err);
+    throw err;
+  }
 }
 
 async function search() {
-  const q = qInput.value || '';
-  const query = `query Movies($q:String,$limit:Int,$skip:Int){ movies(q:$q, limit:$limit, skip:$skip){ _id title year plot } }`;
+  clearFieldErrors();
   try {
-    const data = await graphqlFetch(query, { q, limit: 50, skip: 0 });
-    renderList(data.movies || []);
+    const q = qInput.value.trim();
+    const data = await graphqlFetch(
+      `query Search($q:String,$limit:Int){movies(q:$q,limit:$limit){_id title year plot}}`,
+      { q: q || undefined, limit: 20 }
+    );
+    
+    console.log('Movies returned:', data.movies); // ← Debug log
+    
+    listEl.innerHTML = '';
+    if (!data.movies || data.movies.length === 0) {
+      listEl.innerHTML = '<li>No results found</li>';
+      return;
+    }
+    
+    data.movies.forEach(m => {
+      const li = document.createElement('li');
+      li.textContent = `${m.title} (${m.year || '?'})`;
+      li.onclick = () => loadMovie(m);
+      listEl.appendChild(li);
+    });
   } catch (err) {
     console.error('GraphQL search error', err);
-    msgEl.textContent = 'Search failed';
-    msgEl.className = 'msg-error';
+    showMsg(`Search failed: ${err.message}`, 'error');
   }
 }
 

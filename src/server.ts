@@ -2,8 +2,10 @@ import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import * as tdb from './db';
+import cors from 'cors';
 
 const app = express();
+app.use(cors()); // allow Live Server origin
 
 // Health check endpoint for Render
 app.get('/healthz', (_req, res) => res.status(200).send('ok'));
@@ -28,11 +30,11 @@ app.listen(PORT, '0.0.0.0', () => {
 
 // Connect to Mongo and mount GraphQL
 async function start() {
-  const uri = process.env.MONGO_URI;                // CHANGED: read from env
-  const dbName = process.env.DB_NAME || 'secureDB'; // or your default
+  const uri = process.env.MONGO_URI;
+  const dbName = process.env.DB_NAME || 'sample_mflix'; // ← Use sample_mflix
 
   if (!uri) {
-    console.error('MONGO_URI is not set; skipping DB connect (service will still serve / and /healthz).');
+    console.error('MONGO_URI is not set; skipping DB connect');
     return;
   }
 
