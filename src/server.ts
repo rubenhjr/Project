@@ -22,8 +22,13 @@ app.listen(PORT, '0.0.0.0', () => {
 });
 
 async function start() {
-  const uri = process.env.MONGO_URI || '';
+  const uri = process.env.MONGO_URI;
   const dbName = process.env.DB_NAME || 'sample_mflix';
+
+  if (!uri) {
+    console.error('MONGO_URI environment variable is not set. Skipping DB connection.');
+    return; // server stays up for health checks
+  }
 
   // Retry loop instead of process.exit(1)
   const connectWithRetry = async (attempt = 1) => {
@@ -40,7 +45,6 @@ async function start() {
     }
   };
 
-  // Fire and forget; app stays up to satisfy Render health checks
   connectWithRetry();
 }
 
