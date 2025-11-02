@@ -5,8 +5,8 @@ import { connect, ensureTextIndex, close } from './db';
 
 const app = express();
 
-// Health check (Render can use /healthz)
-app.get('/healthz', (_req, res) => res.status(200).send('ok'));
+// Health check (Render can use /healths)
+app.get('/healths', (_req, res) => res.status(200).send('ok'));
 
 // Static frontend
 app.use(express.json());

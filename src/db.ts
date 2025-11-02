@@ -45,10 +45,6 @@ export async function refreshDb(uri: string, dbName = 'sample_mflix') {
     results.push('reconnected');
   }
 
-  const idx = await ensureTextIndex();
-  if (idx.ok) results.push('text index ensured');
-  else results.push('index warning: ' + idx.error);
-
   return results;
 }
 
