@@ -29,10 +29,10 @@ async function initGraphQL() {
 
     await apolloServer.start();
     apolloServer.applyMiddleware({ app, path: '/graphql' });
-    console.log('✅ GraphQL endpoint mounted at /graphql');
+    console.log('GraphQL endpoint mounted at /graphql');
     return true;
   } catch (err: any) {
-    console.error('❌ GraphQL initialization failed:', err.message || err);
+    console.error('GraphQL initialization failed:', err.message || err);
     return false;
   }
 }
@@ -52,18 +52,18 @@ async function start() {
 
   // Connect to MongoDB
   if (!MONGO_URI) {
-    console.error('❌ MONGO_URI not set - database features disabled');
+    console.error('MONGO_URI not set - database features disabled');
   } else {
     try {
       await db.connect(MONGO_URI, DB_NAME);
-      console.log(`✅ Connected to MongoDB (database: ${DB_NAME})`);
+      console.log(`Connected to MongoDB (database: ${DB_NAME})`);
 
       if (process.env.ENABLE_TEXT_INDEX === 'true') {
         const result = await db.ensureTextIndex();
-        if (result.ok) console.log('✅ Text index ready');
+        if (result.ok) console.log('Text index ready');
       }
     } catch (err: any) {
-      console.error('❌ MongoDB connection failed:', err.message || err);
+      console.error('MongoDB connection failed:', err.message || err);
       console.error('Database features will be unavailable');
     }
   }
@@ -71,13 +71,13 @@ async function start() {
   // Initialize GraphQL (required for app to work)
   const graphqlOk = await initGraphQL();
   if (!graphqlOk) {
-    console.error('⚠️  Starting server without GraphQL - app will not function correctly');
+    console.error('Starting server without GraphQL - app will not function correctly');
   }
 
   // NOW start the HTTP server
   const PORT = Number(process.env.PORT || 3000);
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`✅ Web Server listening on port ${PORT}`);
+    console.log(`Web Server listening on port ${PORT}`);
     console.log(`   Health: http://localhost:${PORT}/healthz`);
     if (graphqlOk) console.log(`   GraphQL: http://localhost:${PORT}/graphql`);
   });

@@ -73,7 +73,7 @@ async function search() {
       { q: q || undefined, limit: 20 }
     );
     
-    console.log('Movies returned:', data.movies); // ← Debug log
+    console.log('Movies returned:', data.movies);
     
     listEl.innerHTML = '';
     if (!data.movies || data.movies.length === 0) {
@@ -83,7 +83,10 @@ async function search() {
     
     data.movies.forEach(m => {
       const li = document.createElement('li');
-      li.textContent = `${m.title} (${m.year || '?'})`;
+      li.innerHTML = `
+        <strong>${m.title}</strong> (${m.year || '?'})<br>
+        <small style="color: #666;">ID: ${m._id}</small>
+      `;
       li.onclick = () => loadMovie(m);
       listEl.appendChild(li);
     });
