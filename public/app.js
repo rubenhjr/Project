@@ -55,15 +55,20 @@ async function graphqlFetch(query, variables = {}) {
     body: JSON.stringify({ query, variables })
   });
 
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`HTTP ${res.status}: ${text.slice(0, 200)}`);
+  }
+
   let data;
   try {
     data = await res.json();
-  } catch {
-    const text = await res.text();
-    throw new Error(`Non-JSON response (${res.status}): ${text.slice(0, 200)}`);
+  } catch (err) {
+    throw new Error(`Invalid JSON response from server (${res.status})`);
   }
-  if (!res.ok || data.errors) {
-    const msg = data?.errors?.map(e => e.message).join('; ') || res.statusText;
+  
+  if (data.errors) {
+    const msg = data.errors.map(e => e.message).join('; ');
     throw new Error(msg);
   }
   return data.data;
