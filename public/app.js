@@ -44,9 +44,9 @@ yearInput.addEventListener('input', validate);
 
 async function graphqlFetch(query, variables = {}) {
   
-  const url = (location.hostname === 'localhost' && location.port === '5500')
-    ? 'http://localhost:3000/graphql'
-    : '/graphql';
+  // Use relative URL for both local and production
+  // This works because the frontend is served from the same domain as the API
+  const url = '/graphql';
 
   const res = await fetch(url, {
     method: 'POST',

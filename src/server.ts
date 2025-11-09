@@ -56,8 +56,16 @@ async function initGraphQL() {
     });
 
     await apolloServer.start();
-    apolloServer.applyMiddleware({ app, path: '/graphql' });
+    apolloServer.applyMiddleware({ 
+      app, 
+      path: '/graphql',
+      cors: {
+        origin: process.env.CLIENT_URL || 'http://localhost:3000',
+        credentials: true
+      }
+    });
     console.log('GraphQL endpoint mounted at /graphql');
+    console.log('GraphQL introspection:', process.env.NODE_ENV !== 'production' ? 'enabled' : 'disabled');
     return true;
   } catch (err: any) {
     console.error('GraphQL initialization failed:', err.message || err);
