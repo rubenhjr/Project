@@ -15,12 +15,16 @@ const users: User[] = [];
 export function configureAuth() {
   // Serialize user for session
   passport.serializeUser((user: any, done) => {
+    console.log('Serializing user:', user);
     done(null, user.id);
   });
 
   // Deserialize user from session
   passport.deserializeUser((id: string, done) => {
+    console.log('Deserializing user with ID:', id);
+    console.log('Available users:', users.length);
     const user = users.find(u => u.id === id);
+    console.log('Found user:', user);
     done(null, user || null);
   });
 
@@ -32,10 +36,12 @@ export function configureAuth() {
   },
   async (accessToken, refreshToken, profile, done) => {
     try {
+      console.log('Google OAuth - Profile:', profile.id, profile.displayName);
       // Check if user already exists
       let user = users.find(u => u.googleId === profile.id);
       
       if (user) {
+        console.log('Google OAuth - Existing user found:', user.name);
         return done(null, user);
       }
 
@@ -49,8 +55,11 @@ export function configureAuth() {
       };
 
       users.push(user);
+      console.log('Google OAuth - New user created:', user.name);
+      console.log('Google OAuth - Total users:', users.length);
       return done(null, user);
     } catch (error) {
+      console.error('Google OAuth error:', error);
       return done(error, false);
     }
   }));
