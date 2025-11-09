@@ -8,7 +8,18 @@
   </head>
   <body>
     <main>
-      <h1>Movie</h1>
+      <header>
+        <h1>Movie CRUD</h1>
+        <div id="auth-section">
+          <div id="user-info" style="display: none;">
+            <span id="user-name"></span>
+            <button id="logoutBtn">Logout</button>
+          </div>
+          <div id="login-section">
+            <a href="/auth/google" id="loginBtn">Login with Google</a>
+          </div>
+        </div>
+      </header>
 
       <section id="search">
         <input id="q" placeholder="Search movies by text (title, plot, cast)" />
@@ -22,15 +33,20 @@
 
       <section id="editor">
         <div id="msg" role="status" aria-live="polite"></div>
-        <h2>Create / Update</h2>
-        <input id="id" placeholder="(leave empty to create) id" />
-  <input id="title" placeholder="title" />
-  <div class="field-error" id="err-title" aria-hidden="true"></div>
-  <input id="year" placeholder="year" />
-  <div class="field-error" id="err-year" aria-hidden="true"></div>
-        <textarea id="plot" placeholder="plot"></textarea>
-        <button id="saveBtn">Save</button>
-        <button id="deleteBtn">Delete</button>
+        <div id="auth-required" style="display: none;">
+          <p>Please <a href="/auth/google">login with Google</a> to create, update, or delete movies.</p>
+        </div>
+        <div id="editor-form">
+          <h2>Create / Update</h2>
+          <input id="id" placeholder="(leave empty to create) id" />
+          <input id="title" placeholder="title" />
+          <div class="field-error" id="err-title" aria-hidden="true"></div>
+          <input id="year" placeholder="year" />
+          <div class="field-error" id="err-year" aria-hidden="true"></div>
+          <textarea id="plot" placeholder="plot"></textarea>
+          <button id="saveBtn">Save</button>
+          <button id="deleteBtn">Delete</button>
+        </div>
       </section>
     </main>
     <script src="app.js"></script>

@@ -36,6 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.resolvers = exports.typeDefs = void 0;
 const apollo_server_express_1 = require("apollo-server-express");
 const db = __importStar(require("../db"));
+const auth_1 = require("../config/auth");
 exports.typeDefs = (0, apollo_server_express_1.gql) `
   type Movie {
     _id: ID
@@ -43,6 +44,13 @@ exports.typeDefs = (0, apollo_server_express_1.gql) `
     year: Int
     plot: String
     score: Float
+  }
+
+  type User {
+    id: ID!
+    email: String!
+    name: String!
+    picture: String
   }
 
   input MovieInput {
@@ -54,6 +62,7 @@ exports.typeDefs = (0, apollo_server_express_1.gql) `
   type Query {
     movies(q: String, limit: Int, skip: Int): [Movie]
     movie(id: ID!): Movie
+    me: User
   }
 
   type Mutation {
@@ -67,22 +76,38 @@ exports.typeDefs = (0, apollo_server_express_1.gql) `
 `;
 exports.resolvers = {
     Query: {
-        movies: async (_, { q, limit = 20, skip = 0 }) => {
-            const opts = { q, limit, skip };
-            const results = await db.searchMovies(opts);
-            console.log(`GraphQL movies query returned ${results.length} results`); // debug log
-            return results;
+        movies: async (_, { q, limit = 20, skip = 0 }, { db }) => {
+            return db.searchMovies({ q, limit, skip });
         },
         movie: async (_, { id }) => {
             return await db.getMovieById(id);
         },
+        me: async (_, __, { req }) => {
+            return (0, auth_1.getCurrentUser)(req);
+        },
     },
     Mutation: {
-        createMovie: async (_, { input }) => {
+        createMovie: async (_, { input }, { req }) => {
+            const user = (0, auth_1.getCurrentUser)(req);
+            if (!user) {
+                throw new Error('Authentication required to create movies');
+            }
             const r = await db.createMovie(input);
             return r.insertedId;
         },
-        updateMovie: async (_, { id, input }) => db.updateMovieById(id, input),
-        deleteMovie: async (_, { id }) => db.deleteMovieById(id),
+        updateMovie: async (_, { id, input }, { req }) => {
+            const user = (0, auth_1.getCurrentUser)(req);
+            if (!user) {
+                throw new Error('Authentication required to update movies');
+            }
+            return db.updateMovieById(id, input);
+        },
+        deleteMovie: async (_, { id }, { req }) => {
+            const user = (0, auth_1.getCurrentUser)(req);
+            if (!user) {
+                throw new Error('Authentication required to delete movies');
+            }
+            return db.deleteMovieById(id);
+        },
     }
 };

@@ -12,6 +12,17 @@ const msgEl = qs('#msg');
 const errTitle = qs('#err-title');
 const errYear = qs('#err-year');
 
+// Auth elements
+const userInfoEl = qs('#user-info');
+const loginSectionEl = qs('#login-section');
+const userNameEl = qs('#user-name');
+const logoutBtn = qs('#logoutBtn');
+const authRequiredEl = qs('#auth-required');
+const editorFormEl = qs('#editor-form');
+
+// Current user state
+let currentUser = null;
+
 function clearFieldErrors() {
   errTitle.textContent = '';
   errYear.textContent = '';
@@ -40,6 +51,7 @@ async function graphqlFetch(query, variables = {}) {
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
+    credentials: 'include', // Include cookies for authentication
     body: JSON.stringify({ query, variables })
   });
 
@@ -57,6 +69,52 @@ async function graphqlFetch(query, variables = {}) {
   return data.data;
 }
 
+// Check authentication status
+async function checkAuth() {
+  try {
+    const data = await graphqlFetch(`query { me { id name email picture } }`);
+    currentUser = data.me;
+    updateAuthUI();
+  } catch (err) {
+    currentUser = null;
+    updateAuthUI();
+  }
+}
+
+// Update UI based on authentication status
+function updateAuthUI() {
+  if (currentUser) {
+    userInfoEl.style.display = 'block';
+    loginSectionEl.style.display = 'none';
+    userNameEl.textContent = `Welcome, ${currentUser.name}!`;
+    authRequiredEl.style.display = 'none';
+    editorFormEl.style.display = 'block';
+  } else {
+    userInfoEl.style.display = 'none';
+    loginSectionEl.style.display = 'block';
+    authRequiredEl.style.display = 'block';
+    editorFormEl.style.display = 'none';
+  }
+}
+
+// Logout function
+async function logout() {
+  try {
+    await fetch('/auth/logout', {
+      method: 'POST',
+      credentials: 'include'
+    });
+    currentUser = null;
+    updateAuthUI();
+    msgEl.textContent = 'Logged out successfully';
+    msgEl.className = 'msg-ok';
+  } catch (err) {
+    console.error('Logout failed:', err);
+    msgEl.textContent = 'Logout failed';
+    msgEl.className = 'msg-error';
+  }
+}
+
 async function search() {
   try {
     const q = (qInput?.value || '').trim();
@@ -64,7 +122,7 @@ async function search() {
       `query Search($q:String,$limit:Int){
         movies(q:$q,limit:$limit){ _id title year plot }
       }`,
-      { q: q || undefined, limit: 20 }
+      { q: q || undefined, limit: 50 }
     );
 
     listEl.innerHTML = '';
@@ -100,9 +158,26 @@ async function search() {
 // Hook up events
 if (searchBtn) searchBtn.addEventListener('click', search);
 if (qInput) qInput.addEventListener('keydown', e => { if (e.key === 'Enter') search(); });
+if (logoutBtn) logoutBtn.addEventListener('click', logout);
 
-// Optional: run an initial search
-document.addEventListener('DOMContentLoaded', () => { if (listEl) search(); });
+// Check URL parameters for auth status
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get('auth') === 'success') {
+  // Remove the parameter from URL
+  window.history.replaceState({}, document.title, window.location.pathname);
+  msgEl.textContent = 'Successfully logged in!';
+  msgEl.className = 'msg-ok';
+} else if (urlParams.get('error') === 'auth_failed') {
+  window.history.replaceState({}, document.title, window.location.pathname);
+  msgEl.textContent = 'Authentication failed. Please try again.';
+  msgEl.className = 'msg-error';
+}
+
+// Initialize app
+document.addEventListener('DOMContentLoaded', async () => {
+  await checkAuth();
+  if (listEl) search();
+});
 
 saveBtn.onclick = async () => {
   const id = idInput.value.trim();
@@ -120,7 +195,8 @@ saveBtn.onclick = async () => {
       msgEl.className = 'msg-ok';
     } catch (err) {
       console.error('GraphQL update error', err);
-      msgEl.textContent = 'Update failed';
+      msgEl.textContent = err.message.includes('Authentication required') ? 
+        'Please login to update movies' : 'Update failed';
       msgEl.className = 'msg-error';
     }
   } else {
@@ -132,7 +208,8 @@ saveBtn.onclick = async () => {
       idInput.value = data.createMovie || '';
     } catch (err) {
       console.error('GraphQL create error', err);
-      msgEl.textContent = 'Create failed';
+      msgEl.textContent = err.message.includes('Authentication required') ? 
+        'Please login to create movies' : 'Create failed';
       msgEl.className = 'msg-error';
       // show field errors if available (GraphQL errors may contain validation info)
       if (Array.isArray(err)) {
@@ -162,7 +239,8 @@ deleteBtn.onclick = async () => {
     msgEl.className = 'msg-ok';
   } catch (err) {
     console.error('GraphQL delete error', err);
-    msgEl.textContent = 'Delete failed';
+    msgEl.textContent = err.message.includes('Authentication required') ? 
+      'Please login to delete movies' : 'Delete failed';
     msgEl.className = 'msg-error';
   }
   idInput.value = '';

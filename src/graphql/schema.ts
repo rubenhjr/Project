@@ -1,6 +1,7 @@
 import { gql } from 'apollo-server-express';
 import * as db from '../db';
 import { Movie } from '../types';
+import { getCurrentUser } from '../config/auth';
 
 export const typeDefs = gql`
   type Movie {
@@ -9,6 +10,13 @@ export const typeDefs = gql`
     year: Int
     plot: String
     score: Float
+  }
+
+  type User {
+    id: ID!
+    email: String!
+    name: String!
+    picture: String
   }
 
   input MovieInput {
@@ -20,6 +28,7 @@ export const typeDefs = gql`
   type Query {
     movies(q: String, limit: Int, skip: Int): [Movie]
     movie(id: ID!): Movie
+    me: User
   }
 
   type Mutation {
@@ -40,13 +49,32 @@ export const resolvers = {
     movie: async (_: any, { id }: any) => {
       return await db.getMovieById(id);
     },
+    me: async (_: any, __: any, { req }: any) => {
+      return getCurrentUser(req);
+    },
   },
   Mutation: {
-    createMovie: async (_: any, { input }: any) => {
+    createMovie: async (_: any, { input }: any, { req }: any) => {
+      const user = getCurrentUser(req);
+      if (!user) {
+        throw new Error('Authentication required to create movies');
+      }
       const r = await db.createMovie(input);
       return r.insertedId;
     },
-    updateMovie: async (_: any, { id, input }: any) => db.updateMovieById(id, input),
-    deleteMovie: async (_: any, { id }: any) => db.deleteMovieById(id),
+    updateMovie: async (_: any, { id, input }: any, { req }: any) => {
+      const user = getCurrentUser(req);
+      if (!user) {
+        throw new Error('Authentication required to update movies');
+      }
+      return db.updateMovieById(id, input);
+    },
+    deleteMovie: async (_: any, { id }: any, { req }: any) => {
+      const user = getCurrentUser(req);
+      if (!user) {
+        throw new Error('Authentication required to delete movies');
+      }
+      return db.deleteMovieById(id);
+    },
   }
 };

@@ -1,5 +1,15 @@
 body{font-family:Segoe UI,Roboto,Arial;margin:24px}
-main{max-width:900px;margin:auto}#results ul{list-style:none;padding:0}#results li{border-bottom:1px solid #ddd;padding:8px}
+main{max-width:900px;margin:auto}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #eee}
+#auth-section{display:flex;align-items:center;gap:12px}
+#user-info{display:flex;align-items:center;gap:12px}
+#user-name{font-weight:500;color:#333}
+#loginBtn{background:#4285f4;color:white;text-decoration:none;padding:8px 16px;border-radius:4px;font-size:14px}
+#loginBtn:hover{background:#3367d6}
+#logoutBtn{background:#dc3545;color:white;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:14px}
+#logoutBtn:hover{background:#c82333}
+#auth-required{background:#fff3cd;border:1px solid #ffeaa7;color:#856404;padding:12px;border-radius:4px;margin-bottom:16px}
+#results ul{list-style:none;padding:0}#results li{border-bottom:1px solid #ddd;padding:8px}
 input,textarea{display:block;margin:6px 0;padding:8px;width:100%}
 button{padding:8px 12px;margin-right:8px}#search{display:flex;gap:8px}#search input{flex:1}#editor{margin-top:16px}
 #msg{padding:8px;margin-bottom:8px;border-radius:4px}
