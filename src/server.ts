@@ -24,7 +24,9 @@ app.use(session({
   saveUninitialized: false,
   cookie: {
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
   }
 }));
 
@@ -73,6 +75,10 @@ app.get('/', (_req, res) => {
 
 // Connect to DB and initialize everything BEFORE starting server
 async function start() {
+  console.log('Starting server...');
+  console.log('Environment:', process.env.NODE_ENV);
+  console.log('Port:', process.env.PORT);
+  
   const MONGO_URI = process.env.MONGO_URI;
   const DB_NAME = process.env.DB_NAME || 'sample_mflix';
 
