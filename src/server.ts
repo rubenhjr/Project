@@ -44,8 +44,11 @@ app.use('/auth', authRoutes);
 // Initialize GraphQL synchronously BEFORE starting server
 async function initGraphQL() {
   try {
+    console.log('Initializing GraphQL...');
     const { ApolloServer } = require('apollo-server-express');
+    console.log('Apollo Server loaded');
     const { typeDefs, resolvers } = require('./graphql/schema');
+    console.log('GraphQL schema loaded');
 
     const apolloServer = new ApolloServer({
       typeDefs,
@@ -69,6 +72,8 @@ async function initGraphQL() {
     return true;
   } catch (err: any) {
     console.error('GraphQL initialization failed:', err.message || err);
+    console.error('Stack trace:', err.stack);
+    console.error('Error details:', JSON.stringify(err, null, 2));
     return false;
   }
 }
@@ -111,7 +116,8 @@ async function start() {
   // Initialize GraphQL (required for app to work)
   const graphqlOk = await initGraphQL();
   if (!graphqlOk) {
-    console.error('Starting server without GraphQL - app will not function correctly');
+    console.error('FATAL: GraphQL initialization failed - terminating server');
+    process.exit(1);
   }
 
   // NOW start the HTTP server
